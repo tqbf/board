@@ -16,6 +16,25 @@ defmodule BoardWeb.ChartHTML do
     """
   end
 
+  def human_duration(seconds) when is_integer(seconds) do
+    cond do
+      seconds < 60 ->
+        "untimed"
+
+      seconds < 1800 ->
+        minutes = seconds / 60
+        "#{Float.round(minutes, 1)} minutes"
+
+      seconds < 43_200 ->
+        hours = seconds / 3600
+        "#{Float.round(hours, 1)} hours"
+
+      true ->
+        days = seconds / 86_400
+        "#{Float.round(days, 1)} days"
+    end
+  end
+
   def picker(assigns) do
     ~H"""
     <h3 class="mb-4 font-semibold text-gray-900 dark:text-white">Identification</h3>

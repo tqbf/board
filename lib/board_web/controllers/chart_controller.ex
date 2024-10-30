@@ -2,6 +2,7 @@ defmodule BoardWeb.ChartController do
   use BoardWeb, :controller
   alias Board.{Meeting, Item, Kind, Repo, Rollups}
   alias BoardWeb.ChartHTML
+  import Ecto.Query
 
   def index(conn, params) do
     # mix format is stripping out the parens that make this pipeline work
@@ -109,17 +110,29 @@ defmodule BoardWeb.ChartController do
     clas = Map.get(params, "class", "c10")
 
     date = String.replace(date, "-0", "-")
-
-    IO.inspect(["hi", kind, date, tick, clas])
-
     items = Rollups.by_kind_filter(kind, date, tick, clas)
 
-    kinds =
-      Repo.all(Kind)
-      |> Enum.reduce(%{}, fn kind, acc ->
-        Map.put(acc, kind.kind, kind.detail)
-      end)
+    render(conn, ChartHTML, "detail.html", items: items, kinds: kinds())
+  end
 
-    render(conn, ChartHTML, "detail.html", items: items, kinds: kinds)
+  def meeting(conn, params) do
+    date = Date.from_iso8601!(Map.get(params, "date", "2023-09-20"))
+
+    meeting =
+      Repo.all(from m in Meeting, where: m.date == ^date)
+      |> Repo.preload(items: [:meeting])
+
+    if Enum.empty?(meeting) do
+      conn |> Plug.Conn.put_status(404) |> Plug.Conn.halt()
+    else
+      render(conn, ChartHTML, "meeting.html", kinds: kinds(), meeting: Enum.at(meeting, 0))
+    end
+  end
+
+  defp kinds do
+    Repo.all(Kind)
+    |> Enum.reduce(%{}, fn kind, acc ->
+      Map.put(acc, kind.kind, kind.detail)
+    end)
   end
 end

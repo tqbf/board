@@ -18,6 +18,7 @@ defmodule BoardWeb.Router do
     pipe_through :browser
     get "/detail", ChartController, :detail
     get "/chart", ChartController, :index
+    get "/meeting/:date", ChartController, :meeting
     get "/", ChartController, :index
   end
 
