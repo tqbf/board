@@ -1,0 +1,151 @@
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+
+  <div class="grid grid-cols-4 gap-4">
+    <div class="col-span-4 p-4 text-sm">
+      <p>
+        <a class="text-blue-600" href="/?year&c10">[year, 10 cats]</a>
+        <a class="text-blue-600" href="/?quarter&c10">[quarter, 10 cats]</a>
+        <a class="text-blue-600" href="/?month&c10">[month, 10 cats]</a>
+        <a class="text-blue-600" href="/?all&c10">[all, 10 cats]</a>
+      </p>
+      <p>
+        <a class="text-blue-600" href="/?year&c25">[year, 20 cats]</a>
+        <a class="text-blue-600" href="/?quarter&c25">[quarter, 20 cats]</a>
+        <a class="text-blue-600" href="/?month&c25">[month, 20 cats]</a>
+        <a class="text-blue-600" href="/?all&c25">[all, 20 cats]</a>
+      </p>
+
+      <div class="mt-4">
+        <button data-modal-target="default-modal" data-modal-toggle="default-modal" class="block text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800" type="button">
+          Explain.
+        </button>
+      </div>
+
+      <div id="default-modal" tabindex="-1" aria-hidden="true" class="hidden overflow-y-auto overflow-x-hidden fixed top-0 right-0 left-0 z-50 justify-center items-center w-full md:inset-0 h-[calc(100%-1rem)] max-h-full">
+        <div class="relative p-4 w-full max-w-2xl max-h-full">
+          <div class="relative bg-white rounded-lg shadow dark:bg-gray-700">
+            <div class="flex items-center justify-between p-4 md:p-5 border-b rounded-t dark:border-gray-600">
+              <h3 class="text-xl font-semibold text-gray-900 dark:text-white">
+                What the hell is this?
+              </h3>
+              <button type="button" class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center dark:hover:bg-gray-600 dark:hover:text-white" data-modal-hide="default-modal">
+                <svg class="w-3 h-3" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
+                  <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
+                </svg>
+                <span class="sr-only">OK ALREADY</span>
+              </button>
+            </div>
+            <div class="p-4 md:p-5 space-y-4">
+              <p class="text-base leading-relaxed text-gray-500 dark:text-gray-400">
+                We scraped the Village Meetings Online site to collect the timestamped agenda items for every
+                board meeting going back to 2015, then fed them to GPT 4o to classify them (as "public safety" or
+                "procedural stuff" or "parking", &c).
+              </p>
+              <p class="text-base leading-relaxed text-gray-500 dark:text-gray-400">
+                The result is a breakdown of how the village board has spent its time over the last decade.
+                <b>Enjoy!</b>
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <ul class="mt-4 list-disc">
+        <li>The x-axis on the chart is hours of total meeting time.</li>
+        <li>Remember: on most charts, time is aggregated across many meetings.</li>
+        <li>Double click any segment in the chart to view the agenda items GPT 4o classified under that category.</li>
+        <li>Click a category in the legend to add/remove it from the chart; double click to chart just that category.</li>
+        <li>There's a model with 10 categories, a more detailed model with 20 (and a super-detailed one we're not showing yet.)</li>
+      </ul>
+
+      <p><b>Work in progress.</b> Some time calculations may be hinky.</p>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-4 gap-4">
+    <div class="col-span-4 p-4">
+      <div id="meetings_chart"></div>
+    </div>
+  </div>
+
+  <!-- <.picker /> -->
+
+  <script>
+    const tickLength = <%= raw(Jason.encode!(@tick)) %>;
+    const classifier = <%= raw(Jason.encode!(@classifier)) %>;
+
+    const bigData = <%= raw(Jason.encode!(@traces)) %>;
+    let plotHeight = 2000;
+  
+    switch(tickLength) {
+    case 'year':
+       plotHeight = 600;
+       break;
+    case 'quarter':
+       plotHeight = 800;
+       break;
+    case 'month':
+       plotHeight = 1800;
+       break;
+    case 'all':
+       plotHeight = 2400;
+       break;
+    } 
+
+    const traces = Object.keys(bigData).map((kind) => { 
+      let meetings = bigData[kind];
+
+      let validMeetings = meetings.filter((m) => {
+        return m.length != 0;
+      });
+  
+      let dates = validMeetings.map((m) => { return m['date']; });
+      let lens = validMeetings.map((m) => { return m.length / 60 / 60; });
+
+      return {
+        y: dates,
+        x: lens,
+        name: kind,
+        type: 'bar',
+        orientation: 'h',
+      };
+    });
+
+    Plotly.newPlot('meetings_chart', traces, {
+      title: 'Board meetings by ' + tickLength,
+      barmode: 'stack',
+      hovermode: 'closest',
+      width: 800,
+      height: plotHeight,
+      xaxis: {
+      },
+      yaxis: {
+        type: 'date',
+//        range: [1000, 18000],
+      },
+    }, {responsive: true});
+
+
+    let thePlot = document.getElementById('meetings_chart');
+    let thing = null;
+
+    thePlot.on('plotly_click', function(data) {
+      let kind = data.points[0].data.name;
+      let date = data.points[0].label;
+  
+      window.location.href = `/detail?kind=${ encodeURIComponent(kind) }&date=${ date }&tick=${ tickLength }&class=${ classifier }`
+  
+      /*
+      let relay_event = new CustomEvent("relay-event", {
+        detail: { 
+          kind: kind, 
+          date: date, 
+          tick: tickLength,
+          classifier: classifier
+        },
+      });
+      document.dispatchEvent(relay_event);
+      */
+    });  
+  </script>
+
