@@ -28,7 +28,9 @@
             <%= item.motion_id %>
           </th>
           <td class="px-6 py-4">
-            <%= item.meeting.date %>
+            <a class="text-blue-600" href={ "/meeting/#{ item.meeting.date }" }>
+              <%= item.meeting.date %>
+            </a>
           </td>
           <td class="px-6 py-4">
             <%= item.title %>
