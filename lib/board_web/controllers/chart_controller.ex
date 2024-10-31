@@ -125,7 +125,27 @@ defmodule BoardWeb.ChartController do
     if Enum.empty?(meeting) do
       conn |> Plug.Conn.put_status(404) |> Plug.Conn.halt()
     else
-      render(conn, ChartHTML, "meeting.html", kinds: kinds(), meeting: Enum.at(meeting, 0))
+      meeting = Enum.at(meeting, 0)
+
+      plotData =
+        Enum.reduce(meeting.items, %{}, fn item, acc ->
+          Map.put(acc, item.kind, Map.get(acc, item.kind, 0) + item.length)
+        end)
+        |> Enum.reduce([], fn {k, v}, acc ->
+          cond do
+            Enum.empty?(acc) ->
+              [[k], [v]]
+
+            true ->
+              [[k | Enum.at(acc, 0)], [v | Enum.at(acc, 1)]]
+          end
+        end)
+
+      render(conn, ChartHTML, "meeting.html",
+        kinds: kinds(),
+        meeting: meeting,
+        plotData: plotData
+      )
     end
   end
 

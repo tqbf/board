@@ -1,5 +1,9 @@
 <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
 
+<div>
+  <div id="meeting_chart"></div>
+</div>
+
 <div class="relative overflow-x-auto">
   <table class="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400">
     <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
@@ -57,3 +61,18 @@
   </table>
 </div>
 
+<script>
+  const plotData = <%= raw(Jason.encode!(@plotData)) %>;
+
+  Plotly.newPlot('meeting_chart', [{
+    values: plotData[1],
+    labels: plotData[0],
+    type: 'pie',
+    hole: 0.4,
+    hoverinfo: 'label+percent+name',
+    domain: {column: 0},
+  }], {
+    title: 'Meeting Time Taken By Classification',
+  });
+
+</script>
