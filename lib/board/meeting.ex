@@ -10,6 +10,8 @@ defmodule Board.Meeting do
     timestamps()
 
     has_many :items, Board.Item
+    has_many :seats_meetings, Board.SeatMeeting
+    has_many :seats, through: [:seats_meetings, :seat]
   end
 
   def changeset(meeting, attrs) do
