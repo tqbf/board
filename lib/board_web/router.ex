@@ -19,6 +19,7 @@ defmodule BoardWeb.Router do
     get "/detail", ChartController, :detail
     get "/chart", ChartController, :index
     get "/meeting/:date", ChartController, :meeting
+    get "/record/:year", ChartController, :vote_record
     get "/", ChartController, :index
   end
 

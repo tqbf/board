@@ -1,6 +1,6 @@
 defmodule BoardWeb.ChartController do
   use BoardWeb, :controller
-  alias Board.{Meeting, Item, Kind, Repo, Rollups}
+  alias Board.{Meeting, Item, Kind, Repo, Rollups, Seat, Vote}
   alias BoardWeb.ChartHTML
   import Ecto.Query
 
@@ -147,6 +147,94 @@ defmodule BoardWeb.ChartController do
         plotData: plotData
       )
     end
+  end
+
+  def vote_record(conn, params) do
+    year = Map.get(params, "year", "2023")
+
+    query =
+      from(v in Vote,
+        join: i in assoc(v, :item),
+        join: m in assoc(i, :meeting),
+        where: fragment("strftime('%Y', ?)", m.date) == ^year,
+        preload: [:seat, item: [:meeting]]
+      )
+
+    {records, issues, items} =
+      Repo.all(query)
+      |> Enum.reduce({%{}, [], %{}}, fn v, acc ->
+        vmap = elem(acc, 0)
+        issues = elem(acc, 1)
+        issmap = elem(acc, 2)
+
+        theVotes = Map.get(vmap, v.seat.name, %{})
+
+        {
+          # records voter => {item, aye/nay}
+          Map.put(vmap, v.seat.name, Map.put(theVotes, v.item.title, {v.item, v.kind})),
+
+          # issues [title, title]
+          issues ++ [v.item.title],
+
+          # items title => %Item{}
+          if(Map.has_key?(issmap, v.item.title),
+            do: issmap,
+            else: Map.put(issmap, v.item.title, v.item)
+          )
+        }
+      end)
+
+    voters = Map.keys(records)
+    issues = issues |> Enum.uniq()
+
+    labels =
+      issues
+      |> Enum.map(fn title ->
+        issue = Map.get(items, title)
+        "#{issue.meeting.date}/#{issue.kind}"
+      end)
+
+    votes =
+      Enum.map(issues, fn title ->
+        Enum.map(voters, fn voter ->
+          {_, kind} = Map.get(records[voter], title, {nil, "n/a"})
+
+          case kind do
+            "aye" -> 1
+            "nay" -> -1
+            "n/a" -> -2
+            _ -> 0
+          end
+        end)
+      end)
+
+    unanimous = fn v ->
+      Enum.filter(v, fn x -> x != 0 end) |> Enum.uniq() |> length() <= 1
+    end
+
+    {enrichedVotes, _} =
+      Enum.reduce(votes, {[], 0}, fn v, acc ->
+        issue = Enum.at(issues, elem(acc, 1))
+
+        enriched =
+          [
+            %{
+              "title" => issue,
+              "date" => items[issue].meeting.date,
+              "kind" => items[issue].kind,
+              "unanimous" => unanimous.(v)
+            }
+          ] ++ v
+
+        {[enriched] ++ elem(acc, 0), elem(acc, 1) + 1}
+      end)
+
+    render(conn, ChartHTML, "votes.html",
+      voters: voters,
+      issues: issues,
+      votes: votes,
+      enrichedVotes: enrichedVotes
+    )
   end
 
   defp kinds do
